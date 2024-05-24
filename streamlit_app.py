@@ -1,60 +1,105 @@
-# Simple Prediction App
-# By Chanin Nantasenamat (Data Professor)
-# https://youtube.com/dataprofessor
-
 # Importing requisite libraries
 import streamlit as st
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
+import pandas as pd
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, classification_report
+from sklearn.preprocessing import StandardScaler
 
 # Page configuration
 st.set_page_config(
-     page_title='Simple Prediction App',
+     page_title='Predicting the Success of International Development Aid Projects',
      page_icon='🌷',
      layout='wide',
      initial_sidebar_state='expanded')
 
 # Title of the app
-st.title('🌷 Simple Prediction App')
+st.title('🌷 Project Success Calculator')
 
-# Load dataset
-df = pd.read_csv('https://raw.githubusercontent.com/dataprofessor/data/master/iris.csv')
+#Load Data
+cleaned_df = pd.read_csv('output.csv')
 
-# Input widgets
-st.sidebar.subheader('Input features')
-sepal_length = st.sidebar.slider('Sepal length', 4.3, 7.9, 5.8)
-sepal_width = st.sidebar.slider('Sepal width', 2.0, 4.4, 3.1)
-petal_length = st.sidebar.slider('Petal length', 1.0, 6.9, 3.8)
-petal_width = st.sidebar.slider('Petal width', 0.1, 2.5, 1.2)
+# Preprocessing for numerical data
+scaler = StandardScaler()
 
-# Separate to X and y
-X = df.drop('Species', axis=1)
-y = df.Species
+def load_model():
+    # Load your trained model here
+     import pandas as pd
+     from sklearn.compose import ColumnTransformer
+     from sklearn.pipeline import Pipeline
+     from sklearn.preprocessing import StandardScaler, OneHotEncoder
+     from sklearn.ensemble import RandomForestClassifier
+     from sklearn.model_selection import train_test_split
+     from sklearn.metrics import accuracy_score, classification_report
 
-# Data splitting
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+     # Define feature and target variables
+     X = cleaned_df.drop('success', axis=1)
+     y = cleaned_df['success']
 
-# Model building
-rf = RandomForestClassifier(max_depth=2, max_features=4, n_estimators=200, random_state=42)
-rf.fit(X_train, y_train)
+     # Preprocessing for numerical and categorical data
+     numerical_features = ['project_duration', 'eval_lag', 'sector_code', 'completion_year', 'project_size_USD_calculated']
 
-# Apply model to make predictions
-y_pred = rf.predict([[sepal_length, sepal_width, petal_length, petal_width]])
+     # Create the column transformer
+     preprocessor = ColumnTransformer(
+     transformers=[
+             ('num', StandardScaler(), numerical_features),
+    ])
 
-# Print EDA
-st.subheader('Brief EDA')
-st.write('The data is grouped by the class and the variable mean is computed for each class.')
-groupby_species_mean = df.groupby('Species').mean()
-st.write(groupby_species_mean)
-st.line_chart(groupby_species_mean.T)
+     # Create a pipeline that includes the preprocessor and the classifier
+     clf = Pipeline(steps=[
+     ('preprocessor', preprocessor),
+     ('classifier', RandomForestClassifier(random_state=42))
+     ])
 
-# Print input features
-st.subheader('Input features')
-input_feature = pd.DataFrame([[sepal_length, sepal_width, petal_length, petal_width]],
-                            columns=['sepal_length', 'sepal_width', 'petal_length', 'petal_width'])
-st.write(input_feature)
+     # Split the data into training and testing sets
+     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=26)
 
-# Print prediction output
-st.subheader('Output')
-st.metric('Predicted class', y_pred[0], '')
+     # Train the model
+     clf.fit(X_train, y_train)
+
+     # Predict on the test set
+     y_pred = clf.predict(X_test)
+     return model
+
+model = load_model()
+
+# Preprocessing for numerical and categorical data
+numerical_features = ['project_duration', 'eval_lag', 'sector_code', 'completion_year', 'project_size_USD_calculated']
+
+# Define function to preprocess input data
+def preprocess_input(data):
+    # Preprocess numerical features
+    data[numerical_features] = scaler.transform(data[numerical_features])
+    return data
+
+# Function to make prediction
+def predict(project_duration, eval_lag, sector_code, completion_year, project_size_USD_calculated):
+    input_data = pd.DataFrame({
+        'project_duration': [project_duration],
+        'eval_lag': [eval_lag],
+        'sector_code': [sector_code],
+        'completion_year': [completion_year],
+        'project_size_USD_calculated': [project_size_USD_calculated]
+    })
+    input_data = preprocess_input(input_data)
+    prediction = model.predict(input_data)
+    return prediction[0]
+
+# Streamlit UI
+st.title('Project Prediction App')
+
+project_duration = st.slider('Project Duration', min_value=0, max_value=1000, step=1)
+eval_lag = st.slider('Evaluation Lag', min_value=0, max_value=1000, step=1)
+sector_code = st.selectbox('Sector Code', options=[1, 2, 3])  # Example options, replace with your actual options
+completion_year = st.slider('Completion Year', min_value=2000, max_value=2030, step=1)
+project_size_USD_calculated = st.number_input('Project Size (USD)', value=1000)
+
+if st.button('Predict'):
+    prediction = predict(project_duration, eval_lag, sector_code, completion_year, project_size_USD_calculated)
+    st.write('Predicted Output:', prediction)
